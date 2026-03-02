@@ -1,0 +1,343 @@
+openapi: 3.0.0
+info:
+  title: Database Utility API
+  description: API for the Database Utility module that connects to PostgreSQL and Kafka
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /db/customers:
+    post:
+      summary: Create a new customer in the database
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Customer'
+      responses:
+        '201':
+          description: Customer created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Invalid customer data
+        '500':
+          description: Internal server error
+
+    get:
+      summary: Get all customers from the database
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 100
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  customers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '500':
+          description: Internal server error
+
+  /db/customers/{customer_id}:
+    get:
+      summary: Get a customer by ID
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+        '500':
+          description: Internal server error
+
+    put:
+      summary: Update a customer's information
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerUpdate'
+      responses:
+        '200':
+          description: Customer updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+        '400':
+          description: Invalid update data
+        '500':
+          description: Internal server error
+
+  /db/tickets:
+    post:
+      summary: Create a new support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Ticket'
+      responses:
+        '201':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Invalid ticket data
+        '500':
+          description: Internal server error
+
+  /db/messages:
+    post:
+      summary: Store a new message in the interaction history
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Message'
+      responses:
+        '201':
+          description: Message stored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Invalid message data
+        '500':
+          description: Internal server error
+
+  /db/vector-search:
+    post:
+      summary: Perform a vector similarity search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VectorSearchQuery'
+      responses:
+        '200':
+          description: Search results with similarity scores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VectorSearchResult'
+        '400':
+          description: Invalid query or embedding
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        external_id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        contact_preferences:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_interaction:
+          type: string
+          format: date-time
+      required:
+        - name
+        - email
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        contact_preferences:
+          type: object
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+        customer_id:
+          type: string
+        external_reference:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [open, in-progress, awaiting-response, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        channel:
+          type: string
+          enum: [email, whatsapp, webform, other]
+        assigned_agent:
+          type: string
+        sla_deadline:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+      required:
+        - customer_id
+        - subject
+        - description
+        - channel
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        ticket_id:
+          type: string
+        sender_type:
+          type: string
+          enum: [customer, agent, system]
+        sender_id:
+          type: string
+        content:
+          type: string
+        content_type:
+          type: string
+          enum: [text, html, markdown, structured]
+        direction:
+          type: string
+          enum: [inbound, outbound]
+        channel_metadata:
+          type: object
+        sent_at:
+          type: string
+          format: date-time
+        received_at:
+          type: string
+          format: date-time
+      required:
+        - ticket_id
+        - sender_type
+        - content
+        - direction
+
+    VectorSearchQuery:
+      type: object
+      properties:
+        query_embedding:
+          type: array
+          items:
+            type: number
+        entity_type:
+          type: string
+          enum: [customer, ticket, message, knowledge_base]
+        top_k:
+          type: integer
+          default: 5
+        threshold:
+          type: number
+          default: 0.5
+      required:
+        - query_embedding
+
+    VectorSearchResult:
+      type: object
+      properties:
+        entity_id:
+          type: string
+        entity_type:
+          type: string
+        content_preview:
+          type: string
+        similarity_score:
+          type: number
+        metadata:
+          type: object
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer

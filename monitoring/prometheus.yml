@@ -1,0 +1,40 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+scrape_configs:
+  - job_name: "fte-api"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["fte-api-service:8000"]
+        labels:
+          service: "api"
+
+  - job_name: "fte-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["fte-message-processor:8001"]
+        labels:
+          service: "worker"
+
+  - job_name: "fte-dispatcher"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["fte-response-dispatcher:8002"]
+        labels:
+          service: "dispatcher"
+
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: "kafka"
+    static_configs:
+      - targets: ["kafka-exporter:9308"]

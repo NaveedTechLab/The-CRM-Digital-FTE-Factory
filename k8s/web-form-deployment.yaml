@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-web-form
+  namespace: customer-success-fte
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fte-web-form
+  template:
+    metadata:
+      labels:
+        app: fte-web-form
+    spec:
+      containers:
+        - name: web-form
+          image: customer-success-fte/web-form:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: "http://fte-api-service"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fte-web-form-service
+  namespace: customer-success-fte
+spec:
+  selector:
+    app: fte-web-form
+  ports:
+    - port: 80
+      targetPort: 3000
+  type: LoadBalancer

@@ -1,0 +1,135 @@
+###############################################################################
+# CRM Digital FTE Factory - LITE Stack
+# Target: Oracle Cloud Free Tier AMD Micro (1 OCPU, 1 GB RAM)
+# Cost: $0/month (forever free)
+#
+# Optimized: No Kafka, no Prometheus/Grafana - direct processing pipeline
+# Services: PostgreSQL + Dashboard API + Web Form + NGINX
+###############################################################################
+
+version: "3.8"
+
+services:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # DATABASE
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: fte-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-crm_db}
+      # Optimize for low memory
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=64MB"
+      - "-c"
+      - "effective_cache_size=128MB"
+      - "-c"
+      - "work_mem=2MB"
+      - "-c"
+      - "maintenance_work_mem=32MB"
+      - "-c"
+      - "max_connections=30"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../phase-2-core-infrastructure-database/postgresql/init-scripts/01-init-db.sql:/docker-entrypoint-initdb.d/01-init-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - fte-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # APPLICATION
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  # Dashboard API (handles everything: tickets, email, whatsapp, web form)
+  fte-dashboard:
+    build:
+      context: ../../dashboard-api
+      dockerfile: Dockerfile
+    container_name: fte-dashboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-crm_db}"
+      GMAIL_SENDER_EMAIL: ${GMAIL_SENDER_EMAIL:-}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-}
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+    networks:
+      - fte-network
+
+  # Web Support Form (Next.js)
+  fte-web-form:
+    build:
+      context: ../../web-support-form
+      dockerfile: Dockerfile
+    container_name: fte-web-form
+    depends_on:
+      - fte-dashboard
+    environment:
+      NEXT_PUBLIC_API_URL: http://fte-dashboard:8002
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks:
+      - fte-network
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # REVERSE PROXY
+  # ═══════════════════════════════════════════════════════════════════════════
+
+  nginx:
+    image: nginx:alpine
+    container_name: fte-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-lite.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - fte-dashboard
+      - fte-web-form
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+    networks:
+      - fte-network
+
+# ═════════════════════════════════════════════════════════════════════════════
+
+volumes:
+  postgres_data:
+
+networks:
+  fte-network:
+    driver: bridge

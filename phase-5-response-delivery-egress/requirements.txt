@@ -1,0 +1,16 @@
+aiokafka==0.8.1
+google-api-python-client==2.70.0
+twilio==8.10.0
+SQLAlchemy==2.0.0
+fastapi==0.104.1
+pydantic==2.5.0
+redis==4.5.4
+psycopg2-binary==2.9.5
+pydantic-settings==2.0.3
+uvicorn==0.23.2
+python-dotenv==1.0.0
+kafka-python==2.0.2
+requests==2.31.0
+aiofiles==23.1.0
+asyncio==3.4.3
+httpx==0.25.2

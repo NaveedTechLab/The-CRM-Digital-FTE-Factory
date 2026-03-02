@@ -1,0 +1,226 @@
+openapi: 3.0.0
+info:
+  title: Customer Success Digital FTE API
+  description: API for the Customer Success Digital FTE prototype
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /api/v1/channels/gmail/webhook:
+    post:
+      summary: Receive Gmail message via webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelMessage'
+      responses:
+        '200':
+          description: Message processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request format
+        '500':
+          description: Internal server error
+
+  /api/v1/channels/whatsapp/webhook:
+    post:
+      summary: Receive WhatsApp message via webhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelMessage'
+      responses:
+        '200':
+          description: Message processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request format
+        '500':
+          description: Internal server error
+
+  /api/v1/channels/webform/webhook:
+    post:
+      summary: Receive web form submission
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChannelMessage'
+      responses:
+        '200':
+          description: Message processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid request format
+        '500':
+          description: Internal server error
+
+  /api/v1/customers/{customer_id}:
+    get:
+      summary: Get customer information
+      parameters:
+        - name: customer_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Customer information retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          description: Customer not found
+        '500':
+          description: Internal server error
+
+  /api/v1/tickets:
+    post:
+      summary: Create a new ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TicketCreate'
+      responses:
+        '201':
+          description: Ticket created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ticket'
+        '400':
+          description: Invalid request format
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    ChannelMessage:
+      type: object
+      properties:
+        customer_email:
+          type: string
+          format: email
+        customer_name:
+          type: string
+        message:
+          type: string
+        channel:
+          type: string
+          enum: [gmail, whatsapp, webform]
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - customer_email
+        - message
+        - channel
+
+    MessageResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message_id:
+          type: string
+        response:
+          type: string
+        ticket_created:
+          type: boolean
+        ticket_id:
+          type: string
+
+    Customer:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        contact_preferences:
+          type: object
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        last_interaction:
+          type: string
+          format: date-time
+
+    TicketCreate:
+      type: object
+      properties:
+        customer_id:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        channel:
+          type: string
+          enum: [gmail, whatsapp, webform]
+      required:
+        - customer_id
+        - subject
+        - description
+        - channel
+
+    Ticket:
+      type: object
+      properties:
+        id:
+          type: string
+        customer_id:
+          type: string
+        subject:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [open, in-progress, resolved, closed]
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+        channel:
+          type: string
+          enum: [gmail, whatsapp, webform]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time

@@ -1,0 +1,366 @@
+openapi: 3.0.0
+info:
+  title: Response Delivery Dispatcher API
+  description: API for the Response Delivery Dispatcher system that handles outbound customer messages
+  version: 1.0.0
+servers:
+  - url: http://localhost:8001
+    description: Local development server
+
+paths:
+  /dispatcher/status:
+    get:
+      summary: Dispatcher status check
+      description: Check the operational status of the Response Delivery Dispatcher
+      responses:
+        '200':
+          description: Dispatcher is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "operational"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-01-01T12:00:00Z"
+                  services:
+                    type: object
+                    properties:
+                      kafka_consumer:
+                        type: string
+                        example: "connected"
+                      database:
+                        type: string
+                        example: "connected"
+                      gmail_service:
+                        type: string
+                        example: "available"
+                      whatsapp_service:
+                        type: string
+                        example: "available"
+                      rate_limiter:
+                        type: string
+                        example: "ready"
+
+  /dispatcher/delivery-status/{message_id}:
+    get:
+      summary: Get delivery status
+      description: Retrieve the delivery status for a specific outbound message
+      parameters:
+        - name: message_id
+          in: path
+          required: true
+          description: Unique identifier for the outbound message
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Delivery status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message_id:
+                    type: string
+                    example: "msg-12345"
+                  delivery_status:
+                    type: string
+                    enum: [pending, in_progress, delivered, failed, retrying]
+                    example: "delivered"
+                  delivery_attempts:
+                    type: integer
+                    example: 1
+                  last_attempt:
+                    type: string
+                    format: date-time
+                    example: "2023-01-01T12:00:00Z"
+                  channel:
+                    type: string
+                    enum: [gmail, whatsapp, webform]
+                    example: "gmail"
+                  recipient:
+                    type: string
+                    example: "customer@example.com"
+        '404':
+          description: Message not found
+        '500':
+          description: Internal server error
+
+  /dispatcher/channel-config:
+    get:
+      summary: Get channel configurations
+      description: Retrieve current configuration for all delivery channels
+      responses:
+        '200':
+          description: Channel configurations retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channels:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        channel_type:
+                          type: string
+                          enum: [gmail, whatsapp, webform]
+                          example: "gmail"
+                        enabled:
+                          type: boolean
+                          example: true
+                        rate_limit:
+                          type: object
+                          properties:
+                            requests_per_minute:
+                              type: integer
+                              example: 250
+                            burst_limit:
+                              type: integer
+                              example: 500
+                        status:
+                          type: string
+                          enum: [available, limited, unavailable]
+                          example: "available"
+        '500':
+          description: Internal server error
+
+    put:
+      summary: Update channel configuration
+      description: Update configuration for a specific delivery channel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - channel_type
+              properties:
+                channel_type:
+                  type: string
+                  enum: [gmail, whatsapp, webform]
+                  description: Channel to update
+                enabled:
+                  type: boolean
+                  description: Whether the channel is enabled
+                rate_limit:
+                  type: object
+                  properties:
+                    requests_per_minute:
+                      type: integer
+                      description: New rate limit in requests per minute
+                    burst_limit:
+                      type: integer
+                      description: New burst limit
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                  type: boolean
+                  example: true
+        '400':
+          description: Invalid configuration
+        '500':
+          description: Internal server error
+
+  /dispatcher/retry-queue:
+    get:
+      summary: Get retry queue status
+      description: Retrieve the status and contents of the retry queue
+      parameters:
+        - name: channel
+          in: query
+          required: false
+          description: Filter by specific channel
+          schema:
+            type: string
+            enum: [gmail, whatsapp, webform]
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of items to return
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: Retry queue status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_items:
+                    type: integer
+                    example: 5
+                  queued_items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message_id:
+                          type: string
+                          example: "msg-67890"
+                        channel:
+                          type: string
+                          enum: [gmail, whatsapp, webform]
+                          example: "gmail"
+                        scheduled_retry:
+                          type: string
+                          format: date-time
+                          example: "2023-01-01T12:05:00Z"
+                        attempt_number:
+                          type: integer
+                          example: 2
+                        failure_reason:
+                          type: string
+                          example: "temporary_failure"
+                  rate_limits:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        remaining:
+                          type: integer
+                          example: 245
+                        reset_time:
+                          type: string
+                          format: date-time
+                          example: "2023-01-01T13:00:00Z"
+        '500':
+          description: Internal server error
+
+  /dispatcher/metrics:
+    get:
+      summary: Dispatcher metrics
+      description: Retrieve operational metrics for the Response Delivery Dispatcher
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_messages_processed:
+                    type: integer
+                    example: 2500
+                  delivery_by_channel:
+                    type: object
+                    properties:
+                      gmail:
+                        type: integer
+                        example: 1000
+                      whatsapp:
+                        type: integer
+                        example: 1200
+                      webform:
+                        type: integer
+                        example: 300
+                  delivery_success_rate:
+                    type: object
+                    properties:
+                      gmail:
+                        type: number
+                        format: float
+                        example: 0.98
+                      whatsapp:
+                        type: number
+                        format: float
+                        example: 0.95
+                      webform:
+                        type: number
+                        format: float
+                        example: 0.99
+                  average_delivery_time_ms:
+                    type: object
+                    properties:
+                      gmail:
+                        type: number
+                        format: float
+                        example: 1200.5
+                      whatsapp:
+                        type: number
+                        format: float
+                        example: 800.2
+                      webform:
+                        type: number
+                        format: float
+                        example: 300.1
+                  rate_limit_hits:
+                    type: object
+                    properties:
+                      gmail:
+                        type: integer
+                        example: 2
+                      whatsapp:
+                        type: integer
+                        example: 5
+                      webform:
+                        type: integer
+                        example: 0
+                  retry_queue_size:
+                    type: object
+                    properties:
+                      gmail:
+                        type: integer
+                        example: 3
+                      whatsapp:
+                        type: integer
+                        example: 7
+                      webform:
+                        type: integer
+                        example: 1
+
+  /dispatcher/cleanup:
+    post:
+      summary: Cleanup dispatcher
+      description: Perform cleanup operations for stress testing or shutdown
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                operation:
+                  type: string
+                  enum: [reset_rate_limits, clear_retry_queue, reset_stats, full_cleanup]
+                  description: Type of cleanup operation to perform
+                force:
+                  type: boolean
+                  default: false
+                  description: Force operation even if dispatcher is active
+      responses:
+        '200':
+          description: Cleanup operation completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  operation:
+                    type: string
+                    example: "full_cleanup"
+                  details:
+                    type: string
+                    example: "All rate limits reset, retry queue cleared, statistics reset"
+        '400':
+          description: Invalid operation or cleanup not allowed
+        '500':
+          description: Internal server error

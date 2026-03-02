@@ -1,0 +1,318 @@
+openapi: 3.0.0
+info:
+  title: Customer Success Agent API
+  description: API for the Customer Success Agent system that processes customer messages and generates responses
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /agent/status:
+    get:
+      summary: Agent status check
+      description: Check the operational status of the Customer Success Agent
+      responses:
+        '200':
+          description: Agent is operational
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "operational"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-01-01T12:00:00Z"
+                  services:
+                    type: object
+                    properties:
+                      kafka_consumer:
+                        type: string
+                        example: "connected"
+                      openai_api:
+                        type: string
+                        example: "available"
+                      database:
+                        type: string
+                        example: "connected"
+                      rag_service:
+                        type: string
+                        example: "ready"
+
+  /agent/process-message:
+    post:
+      summary: Process a customer message
+      description: Manually trigger processing of a customer message (primarily for testing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer_id
+                - message_content
+                - channel
+              properties:
+                customer_id:
+                  type: string
+                  description: Unique identifier for the customer
+                  example: "customer-12345"
+                message_content:
+                  type: string
+                  description: The customer's message content
+                  example: "I'm having trouble with the login functionality"
+                channel:
+                  type: string
+                  enum: [gmail, whatsapp, webform]
+                  description: Channel through which the message was received
+                  example: "webform"
+                conversation_id:
+                  type: string
+                  description: Identifier for the ongoing conversation
+                  example: "conv-67890"
+      responses:
+        '200':
+          description: Message processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  response:
+                    type: string
+                    example: "I understand you're having trouble with login. Have you tried clearing your browser cache?"
+                  confidence_score:
+                    type: number
+                    format: float
+                    example: 0.85
+                  escalation_needed:
+                    type: boolean
+                    example: false
+                  tools_used:
+                    type: array
+                    items:
+                      type: string
+                    example: ["search_kb_tool", "get_customer_history_tool"]
+        '400':
+          description: Invalid request format
+        '500':
+          description: Internal processing error
+
+  /agent/knowledge-base/search:
+    post:
+      summary: Search the knowledge base
+      description: Search the knowledge base for relevant articles (for testing/debugging)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  type: string
+                  description: Search query for relevant knowledge base articles
+                  example: "login issues troubleshooting"
+                max_results:
+                  type: integer
+                  description: Maximum number of results to return
+                  default: 5
+                min_similarity:
+                  type: number
+                  format: float
+                  description: Minimum similarity threshold for results
+                  default: 0.7
+      responses:
+        '200':
+          description: Search results returned successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "kb-article-123"
+                        title:
+                          type: string
+                          example: "Troubleshooting Login Issues"
+                        content:
+                          type: string
+                          example: "If you're experiencing login issues, first try clearing your browser cache..."
+                        similarity_score:
+                          type: number
+                          format: float
+                          example: 0.89
+        '400':
+          description: Invalid request format
+        '500':
+          description: Search service unavailable
+
+  /agent/escalation-trigger:
+    post:
+      summary: Trigger an escalation
+      description: Manually trigger an escalation for a customer issue (for testing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer_id
+                - reason
+                - message_content
+              properties:
+                customer_id:
+                  type: string
+                  description: Unique identifier for the customer
+                  example: "customer-12345"
+                reason:
+                  type: string
+                  description: Reason for escalation
+                  example: "Technical issue requiring engineering support"
+                message_content:
+                  type: string
+                  description: Original message content
+                  example: "I think there's a bug in the payment processing system"
+                priority:
+                  type: string
+                  enum: [low, medium, high, critical]
+                  default: medium
+                  description: Priority level for the escalation
+      responses:
+        '200':
+          description: Escalation triggered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  escalation_id:
+                    type: string
+                    example: "esc-67890"
+                  assigned_agent:
+                    type: string
+                    example: "human-agent-001"
+        '400':
+          description: Invalid request format
+        '500':
+          description: Escalation service unavailable
+
+  /agent/metrics:
+    get:
+      summary: Agent metrics
+      description: Retrieve operational metrics for the Customer Success Agent
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_messages_processed:
+                    type: integer
+                    example: 1250
+                  messages_per_channel:
+                    type: object
+                    properties:
+                      gmail:
+                        type: integer
+                        example: 450
+                      whatsapp:
+                        type: integer
+                        example: 550
+                      webform:
+                        type: integer
+                        example: 250
+                  average_response_time_ms:
+                    type: number
+                    format: float
+                    example: 2450.5
+                  escalation_rate:
+                    type: number
+                    format: float
+                    example: 0.15
+                  average_confidence_score:
+                    type: number
+                    format: float
+                    example: 0.82
+                  knowledge_base_hit_rate:
+                    type: number
+                    format: float
+                    example: 0.78
+                  successful_resolutions:
+                    type: integer
+                    example: 1063
+
+  /agent/conversation/{conversation_id}:
+    get:
+      summary: Get conversation history
+      description: Retrieve the history of a specific conversation (for debugging)
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          description: Unique identifier for the conversation
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Conversation history retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation_id:
+                    type: string
+                    example: "conv-67890"
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: "msg-12345"
+                        role:
+                          type: string
+                          enum: [customer, agent, system]
+                          example: "customer"
+                        content:
+                          type: string
+                          example: "I'm having trouble with the login functionality"
+                        timestamp:
+                          type: string
+                          format: date-time
+                          example: "2023-01-01T12:00:00Z"
+                        confidence_score:
+                          type: number
+                          format: float
+                          example: 0.85
+                  status:
+                    type: string
+                    example: "active"
+        '404':
+          description: Conversation not found
+        '500':
+          description: Internal server error

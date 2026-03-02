@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fte-dashboard
+  namespace: customer-success-fte
+  labels:
+    app: fte-dashboard
+    component: dashboard-api
+    platform: azure
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fte-dashboard
+  template:
+    metadata:
+      labels:
+        app: fte-dashboard
+        component: dashboard-api
+    spec:
+      containers:
+        - name: dashboard
+          image: acrftecr.azurecr.io/fte-dashboard:latest
+          ports:
+            - containerPort: 8002
+          envFrom:
+            - configMapRef:
+                name: fte-config
+            - secretRef:
+                name: fte-secrets
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fte-dashboard-service
+  namespace: customer-success-fte
+  labels:
+    app: fte-dashboard
+    platform: azure
+spec:
+  selector:
+    app: fte-dashboard
+  ports:
+    - port: 80
+      targetPort: 8002
+  type: ClusterIP
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: fte-dashboard-hpa
+  namespace: customer-success-fte
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: fte-dashboard
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,0 +1,41 @@
+# Environment files
+.env
+
+# Credentials
+credentials/
+gmail_credentials.json
+gmail_token.json
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.venv_linux/
+venv/
+*.egg-info/
+
+# Deploy secrets
+deploy/oracle-cloud-free/.env
+
+# Node
+node_modules/
+.next/
+
+# Misc
+nul
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+
+# Logs
+*.log

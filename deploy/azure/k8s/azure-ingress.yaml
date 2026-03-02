@@ -1,0 +1,92 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: fte-ingress
+  namespace: customer-success-fte
+  labels:
+    app: customer-success-fte
+    platform: azure
+  annotations:
+    # Use NGINX Ingress Controller (install via helm on AKS)
+    # Alternatively, switch to appgw for Azure Application Gateway:
+    #   kubernetes.io/ingress.class: azure/application-gateway
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    # Enable CORS for web form
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "*"
+spec:
+  ingressClassName: nginx
+  rules:
+    # API endpoint (Phase 3 ingestion + webhooks)
+    - host: api.customer-success-fte.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fte-api-service
+                port:
+                  number: 80
+          - path: /webhooks
+            pathType: Prefix
+            backend:
+              service:
+                name: fte-api-service
+                port:
+                  number: 80
+
+    # Web support form (Next.js)
+    - host: app.customer-success-fte.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fte-web-form-service
+                port:
+                  number: 80
+
+    # Dashboard API
+    - host: dashboard.customer-success-fte.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: fte-dashboard-service
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: fte-dashboard-service
+                port:
+                  number: 80
+
+    # Grafana monitoring
+    - host: monitoring.customer-success-fte.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana-service
+                port:
+                  number: 3000
+  tls:
+    - hosts:
+        - api.customer-success-fte.example.com
+        - app.customer-success-fte.example.com
+        - dashboard.customer-success-fte.example.com
+        - monitoring.customer-success-fte.example.com
+      secretName: fte-tls-secret

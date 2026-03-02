@@ -1,0 +1,31 @@
+# Local override - removes strict kafka health dependency
+# Kafka is running fine but health check status can lag on Windows Docker Desktop
+services:
+  fte-api:
+    ports:
+      - "8009:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  fte-worker:
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+
+  fte-dispatcher:
+    ports:
+      - "8010:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy

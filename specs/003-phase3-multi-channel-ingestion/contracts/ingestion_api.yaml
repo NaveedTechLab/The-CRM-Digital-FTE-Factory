@@ -1,0 +1,199 @@
+openapi: 3.0.0
+info:
+  title: Multi-Channel Ingestion API
+  description: API for ingesting customer messages from multiple channels (WhatsApp, Gmail, Web Form) into the Customer Success Digital FTE system
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /webhooks/twilio-whatsapp:
+    post:
+      summary: Receive WhatsApp messages from Twilio
+      description: Webhook endpoint for receiving WhatsApp messages via Twilio's API
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                From:
+                  type: string
+                  description: The WhatsApp number of the sender
+                  example: "whatsapp:+1234567890"
+                To:
+                  type: string
+                  description: The WhatsApp number of the recipient
+                  example: "whatsapp:+0987654321"
+                Body:
+                  type: string
+                  description: The content of the message
+                  example: "Hello, I have a question about your product"
+                MessageSid:
+                  type: string
+                  description: Unique identifier for the message from Twilio
+                  example: "SMXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+      responses:
+        '200':
+          description: Message successfully received and queued for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "received"
+                  message_id:
+                    type: string
+                    example: "550e8400-e29b-41d4-a716-446655440000"
+        '403':
+          description: Invalid webhook signature
+        '400':
+          description: Invalid or malformed request payload
+
+  /api/v1/support-form:
+    post:
+      summary: Submit support request via web form
+      description: API endpoint for receiving messages from the web support form
+      security:
+        - ApiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customer_email
+                - message
+              properties:
+                customer_email:
+                  type: string
+                  format: email
+                  description: The customer's email address
+                  example: "customer@example.com"
+                customer_name:
+                  type: string
+                  description: The customer's name (optional)
+                  example: "John Doe"
+                customer_phone:
+                  type: string
+                  description: The customer's phone number (optional)
+                  example: "+1234567890"
+                subject:
+                  type: string
+                  description: Subject of the support request
+                  example: "Product Inquiry"
+                message:
+                  type: string
+                  description: The main content of the message
+                  example: "I would like more information about your premium features"
+                priority:
+                  type: string
+                  enum: [low, medium, high, critical]
+                  default: medium
+                  description: Priority level of the request
+                attachments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      filename:
+                        type: string
+                      content_type:
+                        type: string
+                      data:
+                        type: string
+                        format: byte
+      responses:
+        '200':
+          description: Support request successfully received and queued for processing
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "received"
+                  ticket_id:
+                    type: string
+                    example: "550e8400-e29b-41d4-a716-446655440001"
+        '401':
+          description: Invalid or missing API key
+        '400':
+          description: Invalid request format
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Check the health status of the ingestion service
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+                    example: "2023-01-01T12:00:00Z"
+                  services:
+                    type: object
+                    properties:
+                      database:
+                        type: string
+                        example: "connected"
+                      kafka:
+                        type: string
+                        example: "connected"
+                      gmail_api:
+                        type: string
+                        example: "available"
+
+  /metrics:
+    get:
+      summary: Service metrics
+      description: Get metrics about the ingestion service
+      responses:
+        '200':
+          description: Service metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_messages_processed:
+                    type: integer
+                    example: 1234
+                  messages_per_channel:
+                    type: object
+                    properties:
+                      whatsapp:
+                        type: integer
+                        example: 456
+                      gmail:
+                        type: integer
+                        example: 543
+                      webform:
+                        type: integer
+                        example: 235
+                  avg_processing_time_ms:
+                    type: number
+                    example: 45.6
+
+components:
+  securitySchemes:
+    ApiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authenticating web form submissions
